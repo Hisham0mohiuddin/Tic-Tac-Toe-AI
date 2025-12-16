@@ -9,7 +9,7 @@ def winning(b):
         return True
     
     # diagonals 
-    if abs(np.trace(b))==3 or abs(np.trace(b.T))==3:
+    if abs(np.trace(b))==3 or abs(np.trace(np.fliplr(b)))==3:
         return True
     
     return False
