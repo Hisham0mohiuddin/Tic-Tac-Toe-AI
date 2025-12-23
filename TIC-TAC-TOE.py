@@ -271,15 +271,21 @@ if __name__ == "__main__":
     # Train AI vs AI
     p1 = Player("p1", exp_rate=0.3)
     p2 = Player("p2", exp_rate=0.3)
-    game = Game(p1, p2)
+    ai = Player("AI", exp_rate=0) 
+    human = HumanPlayer("Human") 
+    ai.loadPolicy("policy_p1")
+    game = Game(ai,human)
+    game.playHuman()
 
-    print("Training AI...")
-    game.play(rounds=20000)
-    p1.savePolicy()
+    # game = Game(p1, p2)
+    # print("Training AI...")
+    # game.play(rounds=20000)
+    # p1.savePolicy()
+
+
     # Create Human vs AI
     human = HumanPlayer("Human")
     ai = Player("AI", exp_rate=0)  # no exploration
-    ai.states_value = p1.states_value  # use trained policy
     ai.loadPolicy("policy_p1")
     game = Game(ai,human)
 
