@@ -145,6 +145,42 @@ class Game:
             if win is not None:
                 self.giveReward()
                 break
+    def playHuman(self):
+        self.reset()
+        self.isEnd = False
+
+        while not self.isEnd:
+            # Human move (X)
+            positions = self.availablePositions()
+            action = self.p1.chooseAction(positions, self.board, self.playerSymbol)
+            self.updateState(action)
+            self.showBoard()
+
+            win = self.winning()
+            if win is not None:
+                if win == 1:
+                    print("Human wins!")
+                elif win == -1:
+                    print("AI wins!")
+                else:
+                    print("Draw!")
+                break
+
+            # AI move (O)
+            positions = self.availablePositions()
+            action = self.p2.chooseAction(positions, self.board, self.playerSymbol)
+            self.updateState(action)
+            self.showBoard()
+
+            win = self.winning()
+            if win is not None:
+                if win == 1:
+                    print("AI wins!")
+                elif win == -1:
+                    print("human wins!")
+                else:
+                    print("Draw!")
+                break
 
 
 
@@ -199,21 +235,53 @@ class Player:
                 self.states_value[st] = 0
             self.states_value[st] += self.lr * (self.decay_gamma * reward - self.states_value[st])
             reward = self.states_value[st]
+class HumanPlayer:
+    def __init__(self, name):
+        self.name = name
 
+    def chooseAction(self, positions, board, symbol):
+        while True:
+            row = int(input("Enter row (0-2): "))
+            col = int(input("Enter col (0-2): "))
+            action = (row, col)
+            if action in positions:
+                return action
+            else:
+                print("Invalid move, try again.")
+
+# if __name__ == "__main__":
+
+#     p1 = Player("p1", exp_rate=0.3)
+#     p2 = Player("p2", exp_rate=0.3)
+
+#     game = Game(p1, p2)
+
+#     print("Training...")
+#     game.play(rounds=20000)
+
+#     # turn off exploration
+#     p1.exp_rate = 0
+#     p2.exp_rate = 0
+
+#     print("\nLearned gameplay:\n")
+#     game.playOneGame()
 
 if __name__ == "__main__":
 
+    # Train AI vs AI
     p1 = Player("p1", exp_rate=0.3)
     p2 = Player("p2", exp_rate=0.3)
-
     game = Game(p1, p2)
 
-    print("Training...")
+    print("Training AI...")
     game.play(rounds=20000)
+    p1.savePolicy()
+    # Create Human vs AI
+    human = HumanPlayer("Human")
+    ai = Player("AI", exp_rate=0)  # no exploration
+    ai.states_value = p1.states_value  # use trained policy
+    ai.loadPolicy("policy_p1")
+    game = Game(ai,human)
 
-    # turn off exploration
-    p1.exp_rate = 0
-    p2.exp_rate = 0
-
-    print("\nLearned gameplay:\n")
-    game.playOneGame()
+    print("\nPlay against the AI!")
+    game.playHuman()
