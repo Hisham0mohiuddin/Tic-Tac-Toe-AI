@@ -1,10 +1,10 @@
 import numpy as np
 import pickle 
-board = np.zeros((3,3),dtype=int)
+
 
 class Game:
     def __init__(self,p1,p2):
-        self.board = np.zeros(3,3)
+        self.board = np.zeros((3,3), dtype=int)
         self.p1 = p1
         self.p2 = p2
         self.isEnd = False
@@ -12,10 +12,14 @@ class Game:
         self.playerSymbol = 1
 
     def getHash(self):
-        self.board = str(self.board.reshape(3*3))
-        return self.board
+        return str(self.board.reshape(9))
     
-    
+    def showBoard(self):
+        symbols = {1: "X", -1: "O", 0: "."}
+        for i in range(3):
+            print(" ".join(symbols[self.board[i, j]] for j in range(3)))
+        print()
+
     def availablePositions(self):
         positions = []
         for i in range(3):
@@ -66,6 +70,12 @@ class Game:
         else:
             self.p1.feedReward(0.1)
             self.p2.feedReward(0.5)
+    def reset(self):
+        self.board = np.zeros((3,3), dtype=int)
+        self.boardHash = None
+        self.isEnd = False
+        self.playerSymbol = 1
+
 
     def play(self, rounds=100):
         for i in range(rounds):
@@ -81,7 +91,7 @@ class Game:
                 self.p1.addState(board_hash)
                 # check board status if it is end
 
-                win = self.winner()
+                win = self.winning()
                 if win is not None:
                     # self.showBoard()
                     # ended with p1 either win or draw
@@ -99,7 +109,7 @@ class Game:
                     board_hash = self.getHash()
                     self.p2.addState(board_hash)
 
-                    win = self.winner()
+                    win = self.winning()
                     if win is not None:
                         # self.showBoard()
                         # ended with p2 either win or draw
@@ -108,15 +118,35 @@ class Game:
                         self.p2.reset()
                         self.reset()
                         break
-    def savePolicy(self):
-        fw = open('policy_' + str(self.name), 'wb')
-        pickle.dump(self.states_value, fw)
-        fw.close()
 
-    def loadPolicy(self, file):
-            fr = open(file, 'rb')
-            self.states_value = pickle.load(fr)
-            fr.close()
+    def playOneGame(self):
+        self.reset()
+        self.isEnd = False
+
+        while not self.isEnd:
+            # Player 1
+            positions = self.availablePositions()
+            action = self.p1.chooseAction(positions, self.board, self.playerSymbol)
+            self.updateState(action)
+            self.showBoard()
+
+            win = self.winning()
+            if win is not None:
+                self.giveReward()
+                break
+
+            # Player 2
+            positions = self.availablePositions()
+            action = self.p2.chooseAction(positions, self.board, self.playerSymbol)
+            self.updateState(action)
+            self.showBoard()
+
+            win = self.winning()
+            if win is not None:
+                self.giveReward()
+                break
+
+
 
 
 class Player:
@@ -127,6 +157,24 @@ class Player:
         self.exp_rate = exp_rate
         self.decay_gamma = 0.9
         self.states_value = {}  # state -> value
+    def getHash(self, board):
+        return str(board.reshape(9))
+
+    def reset(self):
+        self.states = []
+
+    def addState(self, state):
+        self.states.append(state)
+
+    def savePolicy(self):
+        fw = open('policy_' + str(self.name), 'wb')
+        pickle.dump(self.states_value, fw)
+        fw.close()
+
+    def loadPolicy(self, file):
+            fr = open(file, 'rb')
+            self.states_value = pickle.load(fr)
+            fr.close()
 
     def chooseAction(self,positions,current_board,symbol):
         if np.random.uniform(0,1)<=self.exp_rate:
@@ -134,7 +182,7 @@ class Player:
             action = positions[indx]
 
         else:
-            maxv = -1e9
+            value_max = -1e9
             for p in positions:
                 next_board = current_board.copy()
                 next_board[p]= symbol 
@@ -153,3 +201,19 @@ class Player:
             reward = self.states_value[st]
 
 
+if __name__ == "__main__":
+
+    p1 = Player("p1", exp_rate=0.3)
+    p2 = Player("p2", exp_rate=0.3)
+
+    game = Game(p1, p2)
+
+    print("Training...")
+    game.play(rounds=20000)
+
+    # turn off exploration
+    p1.exp_rate = 0
+    p2.exp_rate = 0
+
+    print("\nLearned gameplay:\n")
+    game.playOneGame()
