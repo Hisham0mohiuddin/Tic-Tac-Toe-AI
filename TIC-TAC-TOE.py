@@ -1,18 +1,70 @@
 import numpy as np
 board = np.zeros((3,3),dtype=int)
 
-# changing the manual looping to just cheking the sum
-def winning(b):
-    if np.any(np.sum(b,axis=0)==3) or np.any(np.sum(b,axis=0) == -3):
-        return True
-    elif np.any(np.sum(b,axis=1)==3) or np.any(np.sum(b,axis=1) == -3):
-        return True
+class Game:
+    def __init__(self,p1,p2):
+        self.board = np.zeros(3,3)
+        self.p1 = p1
+        self.p2 = p2
+        self.isEnd = False
+        self.boardHash = None
+        self.playerSymbol = 1
+
+    def getHash(self):
+        self.board = str(self.board.reshape(3*3))
+        return self.board
     
-    # diagonals 
-    if abs(np.trace(b))==3 or abs(np.trace(np.fliplr(b)))==3:
-        return True
     
-    return False
+    def availablePositions(self):
+        positions = []
+        for i in range(3):
+            for j in range(3):
+                if self.board[i, j] == 0:
+                    positions.append((i, j))  # need to be tuple
+        return positions
+
+    def updateState(self, position):
+        self.board[position] = self.playerSymbol
+        # switch to another player
+        self.playerSymbol = -1 if self.playerSymbol == 1 else 1
+        
+    # changing the manual looping to just cheking the sum
+    def winning(self):
+        if np.any(np.sum(self.board,axis=0)==3):
+            return 1
+        if( np.any(np.sum(self.board,axis=0) == -3)):
+            return -1
+        if np.any(np.sum(self.board,axis=1)==3) :
+            return 1
+        if np.any(np.sum(self.board,axis=1) == -3):
+           return -1
+        
+        # diagonals 
+        if (np.trace(self.board))==3 or (np.trace(np.fliplr(self.board)))==3:
+            return 1
+        if (np.trace(self.board))==-3 or (np.trace(np.fliplr(self.board)))==-3:
+            return -1
+        
+        # tie
+        if len(self.availablePositions()) == 0:
+            self.isEnd = True
+            return 0
+        # not end
+        self.isEnd = False
+        return None
+    
+    def giveReward(self):
+        result = self.winning()
+        # backpropagate reward
+        if result == 1:
+            self.p1.feedReward(1)
+            self.p2.feedReward(0)
+        elif result == -1:
+            self.p1.feedReward(0)
+            self.p2.feedReward(1)
+        else:
+            self.p1.feedReward(0.1)
+            self.p2.feedReward(0.5)
 
 print("""
 0 1 2 
