@@ -1,4 +1,5 @@
 import numpy as np
+import pickle 
 board = np.zeros((3,3),dtype=int)
 
 class Game:
@@ -66,32 +67,89 @@ class Game:
             self.p1.feedReward(0.1)
             self.p2.feedReward(0.5)
 
-print("""
-0 1 2 
-3 4 5
-6 7 8
-""")
-marker = 1
-symbols = {
-    1: "X",
-    -1: "O",
-    0: "E"
-}
-while True:
-    print(f"as the {symbols[marker]} what do u want to play:")
-    c = int(input("enter the index no of what u want to select: "))
-    
-    row_in = c // 3
-    col_in = c % 3
-    if(board[row_in][col_in]!= 0):
-        print("cell used already")
-        continue
-    board[row_in][col_in]=marker
+    def play(self, rounds=100):
+        for i in range(rounds):
+            if i % 1000 == 0:
+                print("Rounds {}".format(i))
+            while not self.isEnd:
+                # Player 1
+                positions = self.availablePositions()
+                p1_action = self.p1.chooseAction(positions, self.board, self.playerSymbol)
+                # take action and upate board state
+                self.updateState(p1_action)
+                board_hash = self.getHash()
+                self.p1.addState(board_hash)
+                # check board status if it is end
 
-    if(winning(board)):
-        print(f"player {symbols[marker]} has won")
-        break
-    for i in board:
-        print(i)
-        print("",end="")
-    marker *=-1
+                win = self.winner()
+                if win is not None:
+                    # self.showBoard()
+                    # ended with p1 either win or draw
+                    self.giveReward()
+                    self.p1.reset()
+                    self.p2.reset()
+                    self.reset()
+                    break
+
+                else:
+                    # Player 2
+                    positions = self.availablePositions()
+                    p2_action = self.p2.chooseAction(positions, self.board, self.playerSymbol)
+                    self.updateState(p2_action)
+                    board_hash = self.getHash()
+                    self.p2.addState(board_hash)
+
+                    win = self.winner()
+                    if win is not None:
+                        # self.showBoard()
+                        # ended with p2 either win or draw
+                        self.giveReward()
+                        self.p1.reset()
+                        self.p2.reset()
+                        self.reset()
+                        break
+    def savePolicy(self):
+        fw = open('policy_' + str(self.name), 'wb')
+        pickle.dump(self.states_value, fw)
+        fw.close()
+
+    def loadPolicy(self, file):
+            fr = open(file, 'rb')
+            self.states_value = pickle.load(fr)
+            fr.close()
+
+
+class Player:
+    def __init__(self, name, exp_rate=0.3):
+        self.name = name
+        self.states = []  # record all positions taken
+        self.lr = 0.2
+        self.exp_rate = exp_rate
+        self.decay_gamma = 0.9
+        self.states_value = {}  # state -> value
+
+    def chooseAction(self,positions,current_board,symbol):
+        if np.random.uniform(0,1)<=self.exp_rate:
+            indx = np.random.choice(len(positions))
+            action = positions[indx]
+
+        else:
+            maxv = -1e9
+            for p in positions:
+                next_board = current_board.copy()
+                next_board[p]= symbol 
+                next_boardHash = self.getHash(next_board)
+                value = 0 if self.states_value.get(next_boardHash) is None else self.states_value.get(next_boardHash)
+                if value >= value_max:
+                    value_max = value
+                    action = p
+        return action
+    
+    def feedReward(self, reward):
+        for st in reversed(self.states):
+            if self.states_value.get(st) is None:
+                self.states_value[st] = 0
+            self.states_value[st] += self.lr * (self.decay_gamma * reward - self.states_value[st])
+            reward = self.states_value[st]
+
+
